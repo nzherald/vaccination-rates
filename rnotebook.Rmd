@@ -1,6 +1,6 @@
 ---
-title: "Vaccination rates"
-subtitle: "Data exploration"
+title: "Vaccination rates - data exploration"
+subtitle: "Everything here is exploratory and only content in the [article](https://www.nzherald.co.nz/nz/news/article.cfm?c_id=1&objectid=12250703) should be regarded as final"
 author: "Chris Knox"
 date: "`r Sys.Date()`"
 output: 
@@ -16,13 +16,10 @@ library(tidyverse)
 library(ggthemes)
 library(knitr)
 library(scales)
-library(RPostgreSQL)
 library(r2d3)
 library(ggrepel)
 library(sf)
 
-drv <- dbDriver('PostgreSQL')
-con <- dbConnect(drv, dbname='vaccinations')
 
 # invalidate cache when the package version changes
 knitr::opts_chunk$set(tidy = FALSE,
@@ -46,12 +43,15 @@ dom <- drake::readd(whole_dom)
 
 This is the working document for a New Zealand Herald investigation of vaccination rates in New
 Zealand - the final article is [here](https://www.nzherald.co.nz/nz/news/article.cfm?c_id=1&objectid=12250703)
+and the source code is [here](https://github.com/nzherald/vaccination-rates)
+
 
 This document has been released largely as-is and hopefully will provide some insight into and
 transparency for the numerical aspects of the investigation. If you have any questions or comments
 please get in touch with Chris Knox - https://twitter.com/vizowl or chris.knox@nzherald.co.nz
 
-The actual document was created iteratively via duscussion between Kirsty Johnston
+
+The document was created iteratively via duscussion between Kirsty Johnston
 (https://twitter.com/kirsty_johnston) and Chris Knox as we tried to understand the data.
 
 The source code for the analysis and interactive is open source. Although, if you use
