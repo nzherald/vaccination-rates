@@ -1,0 +1,71 @@
+
+/* Project-specific styles go here */
+.nzh-datavis {
+    div {
+        overflow: visible;
+    }
+    .chart-wrapper {
+        position: relative;
+        width: 100%;
+
+        .chart-legend {
+            position: absolute;
+            right: 10px;
+            bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 0px 5px;
+            .legend-entry{
+                display: flex;
+                align-items: center;
+                font-size: 14px;
+                .legend-line {
+                    width: 10px;
+                    height: 3px;
+                    margin-right: 5px;
+                }
+            }
+        }
+    }
+    .note {
+        font-style: italic;
+        font-size: 14px;
+        text-align: right;
+        margin-right: 30px;
+    }
+    svg {
+        overflow: visible;
+        &.background-graphics {
+            .axis path.tick-line {
+                stroke: rgba(0,0,0,0.3);
+            }
+        }
+        .chart-title {
+            font-family: 'Stag Book';
+            }
+    }
+    .carousel ul.slider {
+        padding-left: 0;
+        margin-left: 0;
+        margin-bottom: 0;
+        list-style-type: none;
+
+    }
+    .carousel .slide {
+        background-color: #FFF;
+        width: 100%;
+    }
+
+    .carousel .control-prev.control-arrow:before {
+        border-right: 8px solid rgba(0,0,0,0.3);
+    }
+
+    .carousel .control-next.control-arrow:before {
+        border-left: 8px solid rgba(0,0,0,0.3);
+    }
+}
+
+@media (max-width: 800px) {
+    .nzh-datavis {}
+}
