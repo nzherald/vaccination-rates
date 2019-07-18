@@ -1,0 +1,866 @@
+---
+title: "Vaccination rates"
+subtitle: "Data exploration"
+author: "Chris Knox"
+date: "`r Sys.Date()`"
+output: 
+  tint::tintHtml:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+library(tint)
+library(tidyverse)
+library(ggthemes)
+library(knitr)
+library(scales)
+library(RPostgreSQL)
+library(r2d3)
+library(ggrepel)
+library(sf)
+
+drv <- dbDriver('PostgreSQL')
+con <- dbConnect(drv, dbname='vaccinations')
+
+# invalidate cache when the package version changes
+knitr::opts_chunk$set(tidy = FALSE,
+                      cache.extra = packageVersion('tint'),
+                      cache = TRUE,
+                      autodep = TRUE,
+                      echo = FALSE,
+                      message = FALSE,
+                      error = FALSE,
+                      warning = FALSE
+)
+
+options(htmltools.dir.version = FALSE)
+drake::r_make()
+vaccinations <- drake::readd(oia_data)
+vaccinations_geo <- drake::readd(oia_data_geo)
+dom <- drake::readd(whole_dom)
+```
+# Data from immunisation coverage reports
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+reports <- drake::readd(reports)
+ggplot(reports %>% 
+       filter(Measure=='Percentage',
+              Breakdown=='Ethnicity',
+              Category != 'Dep Unknown',
+              DHB=='National'), aes(x=Quarter,y=Value,color=Category)) + 
+  geom_line() + 
+  facet_wrap(. ~ Milestone) +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="National vaccination milestones by ethnicity") 
+```
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(reports %>% 
+       filter(Measure=='Percentage',
+              Breakdown=='Deprivation',
+              Category != 'Dep Unknown',
+              DHB=='National'), aes(x=Quarter,y=Value,color=Category)) + 
+  geom_line() + 
+  facet_wrap(. ~ Milestone) +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="National vaccination milestones by deprivation") 
+```
+
+
+# Kirsty's questions
+
+> 1.Snapshot: For the latest point in time we have (I think it's Dec last year?) (both for overall rates, and then just for six-month rates)
+
+> -Where are the lowest rates of vaccination?
+
+```{r}
+m6 <- drake::readd(month6)
+m12 <- drake::readd(month12)
+m18 <- drake::readd(month18)
+m24 <- drake::readd(month24)
+m60 <- drake::readd(month60)
+worst6 <- top_n(m6, -1, Rate)
+overall <- drake::readd(overall18) %>% ungroup
+worstO <- top_n(overall, -1, Rate)
+```
+
+The worst vaccination rate at 6 months is `r percent(worst6 %>% pull(Rate))` in 
+`r worst6 %>% pull(DOMICILE_NAME)` which is in `r worst6 %>% pull(DHB_NAME)`.
+
+
+The worst overall (which might not mean anything) vaccination rate is `r percent(worstO %>% pull(Rate))` in 
+`r worstO %>% pull(DOMICILE_NAME)` which is in `r worstO %>% pull(DHB_NAME)`.
+
+Well that isn't so surprising - let's look at the worst 10.
+
+```{r}
+kable(top_n(m6, -10, Rate) %>% arrange(Rate) %>%
+      select(DHB_NAME, DOMICILE_NAME, NUMBER_ELIGIBLE, Dep=CAU_average_NZDep2013, Rate),
+    caption="The worst 10 domiciles at 6 months in 2018")
+```
+
+and overall.
+
+```{r}
+kable(top_n(overall, -10, Rate) %>% arrange(Rate) %>%
+      select(DHB_NAME, DOMICILE_NAME, Dep=CAU_average_NZDep2013, Rate),
+    caption="The worst 10 domiciles overall in 2018")
+```
+
+> Is there a correlation between vaxx rates and deprivation?
+
+Let's use the score not the deciles.
+
+```{r}
+ggplot(m6, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
+  geom_point() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  labs(title = "Deprivation versus 6 month vaccination rates") +
+  scale_y_continuous(labels=percent)
+```
+
+How does it look by DHB
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(m6, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
+  geom_point() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  labs(title = "Deprivation versus 6 month vaccination rates") +
+  scale_y_continuous(labels=percent,limits=c(0.5,1)) +
+  facet_wrap(. ~ DHB_NAME, ncol=4)
+```
+
+Most of Auckland is better than most of Bay of Plenty.
+
+How does it look at 12 months?
+
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(m12, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
+  geom_point() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  labs(title = "Deprivation versus 12 month vaccination rates") +
+  scale_y_continuous(labels=percent,limits=c(0.5,1)) +
+  facet_wrap(. ~ DHB_NAME, ncol=4)
+```
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(m18, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
+  geom_point() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  labs(title = "Deprivation versus 18 month vaccination rates") +
+  scale_y_continuous(labels=percent,limits=c(0.5,1)) +
+  facet_wrap(. ~ DHB_NAME, ncol=4)
+```
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(m24, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
+  geom_point() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  labs(title = "Deprivation versus 24 month vaccination rates") +
+  scale_y_continuous(labels=percent,limits=c(0.5,1)) +
+  facet_wrap(. ~ DHB_NAME, ncol=4)
+```
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(m60, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
+  geom_point() +
+  geom_smooth() +
+  theme_fivethirtyeight() +
+  labs(title = "Deprivation versus 60 month vaccination rates") +
+  scale_y_continuous(labels=percent,limits=c(0.5,1)) +
+  facet_wrap(. ~ DHB_NAME, ncol=4)
+```
+
+## Trends by deprivation
+
+```{r}
+ggplot(vaccinations %>%
+       filter(AGE_IN_MONTHS == 6) %>%
+       group_by(CAU_average_NZDep2013, MILESTONE_YEAR) %>%
+       summarise(Rate=sum(NUMBER_FULLY_IMMUNISED)/sum(NUMBER_ELIGIBLE)),
+     aes(x=MILESTONE_YEAR,y=Rate,color=coalesce(str_pad(CAU_average_NZDep2013, 2, pad='0'),'??'))) +
+  geom_line() +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="6 month vaccination rates by deprivation") 
+```
+
+
+```{r}
+ggplot(vaccinations %>%
+       filter(AGE_IN_MONTHS == 12) %>%
+       group_by(CAU_average_NZDep2013, MILESTONE_YEAR) %>%
+       summarise(Rate=sum(NUMBER_FULLY_IMMUNISED)/sum(NUMBER_ELIGIBLE)),
+     aes(x=MILESTONE_YEAR,y=Rate,color=coalesce(str_pad(CAU_average_NZDep2013, 2, pad='0'),'??'))) +
+  geom_line() +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="12 month vaccination rates by deprivation") 
+```
+
+So it looks like drop-off is definitely occurring in more deprived areas. And 
+
+
+# Load the data
+
+## The data
+
+The data covered the number of children who are vaccinated to each of the vaccination milestone by
+health domicle and year.
+
+It was provided by the Ministry of Health under the Official Information Act, as a spreadsheet with
+68,385 rows and 8 columns. The columns are:
+
+- **DHB_CODE**
+- **DHB_NAME**
+- **DOMICILE_CODE**
+- **DOMICILE_NAME**
+- **AGE_IN_MONTHS** - the age for each milestone
+- **MILESTONE_YEAR** - the year the milestone
+- **NUMBER_ELIGIBLE** - the number of children within the milestone age range
+- **NUMBER_FULLY_IMMUNISED**
+
+If there are less than ten eligible children in a domicile in a given year they have been aggregated
+with other small domiciles in the DHB.
+
+
+I haved used Stats NZ geographic areas data to match domicile codes
+to 2013 area units and then too Otago's deprivation index data.
+
+### Initial look
+
+Calculate an overall rate for every domicile - this probably isn't something we
+would use later - it is the average rate across all milestone ages and years.
+
+
+```{r,fig.fullwidth=T,fig.width=10}
+drake::readd(initialPlot1)
+```
+The scatter to the left and right around the individual deciles does not mean anything.
+It is just _jitter_ that is randomly introduced to make it easier to read.
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=20}
+drake::readd(initialPlot2)
+```
+
+```{r,fig.height=20,fig.fullwidth=T,fig.width=10}
+drake::readd(fitted_facets)
+```
+
+How does ethnicity effect things?
+
+```{r}
+ethnicity <- tbl(con, "census") %>% collect() %>%
+  left_join(dom, by=c("code"="AU2013_code"))
+ggplot(ethnicity, aes(x=Rate,y=maori,color=CAU_average_NZDep2013)) +
+  geom_point()
+```
+
+Graphically I would have to say it doesn't ...
+
+
+
+# For Emma
+
+## National chart 
+
+```{r}
+ggplot(reports %>% filter(DHB=='National',Measure=="Percentage",Category=="Total"),
+       aes(x=Quarter,y=Value, color=Milestone)) +
+    geom_line() +
+  scale_color_brewer(palette='Dark2', direction=-1) +
+  theme_fivethirtyeight() +
+  labs(title="New Zealand Immunisation Rates", subtitle="By Milestone Age") +
+  scale_y_continuous(labels=percent) +
+ggsave('nz-immunisation.png')
+```
+
+# More questions
+
+## Dropoff by DHB
+
+### 6 Months
+```{r}
+dhb_total <- reports %>%
+  filter(Measure=='Percentage',Category=="Total",Breakdown=='Ethnicity') 
+dhbNow <- dhb_total %>%
+  filter(Quarter=='2019-03-01') %>% 
+  select(DHB,Milestone,Now=Value)
+dropoffs <- dhb_total %>%
+  group_by(DHB, Milestone) %>%
+  summarise(Max=max(Value,na.rm=T)) %>%
+  ungroup() %>%
+  inner_join(dhb_total %>% select(DHB, Milestone, Quarter, Value),
+             by=c("DHB","Milestone","Max"="Value")) %>% 
+  group_by(DHB,Milestone,Max) %>%
+  summarise(`Best Quarter`=max(Quarter)) %>%
+  inner_join(dhbNow, by=c("DHB","Milestone")) %>%
+  mutate(Drop=Now-Max) %>%
+  ungroup()
+
+kable(dropoffs %>% filter(Milestone == '06 months') %>%
+      arrange(Drop) %>%
+      select(-Milestone) %>%
+      mutate(Drop=percent(Drop),
+             Max=percent(Max),
+             Now=percent(Now)),
+caption="Drop from each DHB's best 6 month immunisation rate until now")
+```
+
+### 8 Months
+```{r}
+kable(dropoffs %>% filter(Milestone == '08 months') %>%
+      arrange(Drop) %>%
+      select(-Milestone) %>%
+      mutate(Drop=percent(Drop),
+             Max=percent(Max),
+             Now=percent(Now)),
+caption="Drop from each DHB's best 8 month immunisation rate until now")
+
+```
+
+
+
+
+### 12 Months
+```{r}
+kable(dropoffs %>% filter(Milestone == '12 months') %>%
+      arrange(Drop) %>%
+      select(-Milestone) %>%
+      mutate(Drop=percent(Drop),
+             Max=percent(Max),
+             Now=percent(Now)),
+caption="Drop from each DHB's best 12 month immunisation rate until now")
+
+```
+
+
+
+## Dropoff by DHB and Ethnicity
+
+### 6 Months
+```{r}
+dhb_total_eth <- reports %>%
+  filter(Measure=='Percentage',Category != "Total",Breakdown=='Ethnicity') 
+dhbNow_eth <- dhb_total_eth %>%
+  filter(Quarter=='2019-03-01') %>% 
+  select(DHB,Milestone,Now=Value,Category)
+dropoffs_eth <- dhb_total_eth %>%
+  group_by(DHB, Milestone,Category) %>%
+  summarise(Max=max(Value,na.rm=T)) %>%
+  ungroup() %>%
+  inner_join(dhb_total_eth %>% select(DHB, Milestone, Quarter, Value,Category),
+             by=c("DHB","Milestone","Max"="Value","Category")) %>% 
+  group_by(DHB,Milestone,Max,Category) %>%
+  summarise(`Best Quarter`=max(Quarter)) %>%
+  inner_join(dhbNow_eth, by=c("DHB","Milestone","Category")) %>%
+  mutate(Drop=Now-Max) %>%
+  ungroup()
+
+kable(spread(dropoffs_eth %>%
+             filter(Milestone=='06 months') %>%
+             select(DHB,Drop,Category), Category, Drop) %>%
+      arrange(Maori) %>%
+      mutate(Asian=percent(Asian),
+             Māori=percent(Maori),
+             Pākehā=percent(NZE),
+             Other=percent(Other),
+             Pacific=percent(Pacific)) %>%
+      select(-NZE,-Maori),
+caption="Drop by ethnicity from each DHB's best 6 month immunisation rate until now")
+```
+
+### 8 Months
+
+```{r}
+kable(spread(dropoffs_eth %>%
+             filter(Milestone=='08 months') %>%
+             select(DHB,Drop,Category), Category, Drop) %>%
+      arrange(Maori) %>%
+      mutate(Asian=percent(Asian),
+             Māori=percent(Maori),
+             Pākehā=percent(NZE),
+             Other=percent(Other),
+             Pacific=percent(Pacific)) %>%
+      select(-NZE,-Maori),
+caption="Drop by ethnicity from each DHB's best 8 month immunisation rate until now")
+```
+
+
+
+### 12 Months
+
+```{r}
+kable(spread(dropoffs_eth %>%
+             filter(Milestone=='12 months') %>%
+             select(DHB,Drop,Category), Category, Drop) %>%
+      arrange(Maori) %>%
+      mutate(Asian=percent(Asian),
+             Māori=percent(Maori),
+             Pākehā=percent(NZE),
+             Other=percent(Other),
+             Pacific=percent(Pacific)) %>%
+      select(-NZE,-Maori),
+caption="Drop by ethnicity from each DHB's best 12 month immunisation rate until now")
+```
+
+
+## Dropoff by DHB and Deprivation
+
+### 6 Months
+```{r}
+dhb_total_dep <- reports %>%
+  filter(Measure=='Percentage',Breakdown=='Deprivation') 
+dhbNow_dep <- dhb_total_dep %>%
+  filter(Quarter=='2019-03-01') %>% 
+  select(DHB,Milestone,Now=Value,Category)
+dropoffs_dep <- dhb_total_dep %>%
+  group_by(DHB, Milestone,Category) %>%
+  summarise(Max=max(Value,na.rm=T)) %>%
+  ungroup() %>%
+  inner_join(dhb_total_dep %>% select(DHB, Milestone, Quarter, Value,Category),
+             by=c("DHB","Milestone","Max"="Value","Category")) %>% 
+  group_by(DHB,Milestone,Max,Category) %>%
+  summarise(`Best Quarter`=max(Quarter)) %>%
+  inner_join(dhbNow_dep, by=c("DHB","Milestone","Category")) %>%
+  mutate(Drop=Now-Max) %>%
+  ungroup()
+
+kable(spread(dropoffs_dep %>%
+             filter(Milestone=='06 months') %>%
+             select(DHB,Drop,Category), Category, Drop) %>%
+            arrange(`Dep 9-10`) %>%
+            mutate(`Dep 1-2`=percent(`Dep 1-2`),
+                    `Dep 3-4`=percent(`Dep 3-4`),
+                    `Dep 5-6`=percent(`Dep 5-6`),
+                    `Dep 7-8`=percent(`Dep 7-8`),
+                    `Dep 9-10`=percent(`Dep 9-10`),
+                    `Dep Unknown`=percent(`Dep Unknown`)),
+caption="Drop by deprivation from each DHB's best 6 month immunisation rate until now")
+```
+
+### 8 Months
+
+```{r}
+kable(spread(dropoffs_dep %>%
+             filter(Milestone=='08 months') %>%
+             select(DHB,Drop,Category), Category, Drop) %>%
+            arrange(`Dep 9-10`) %>%
+            mutate(`Dep 1-2`=percent(`Dep 1-2`),
+                    `Dep 3-4`=percent(`Dep 3-4`),
+                    `Dep 5-6`=percent(`Dep 5-6`),
+                    `Dep 7-8`=percent(`Dep 7-8`),
+                    `Dep 9-10`=percent(`Dep 9-10`),
+                    `Dep Unknown`=percent(`Dep Unknown`)
+                    ),
+caption="Drop by deprivation from each DHB's best 8 month immunisation rate until now")
+```
+
+
+
+### 12 Months
+
+```{r}
+kable(spread(dropoffs_dep %>%
+             filter(Milestone=='12 months') %>%
+             select(DHB,Drop,Category), Category, Drop) %>%
+            arrange(`Dep 9-10`) %>%
+            mutate(`Dep 1-2`=percent(`Dep 1-2`),
+                    `Dep 3-4`=percent(`Dep 3-4`),
+                    `Dep 5-6`=percent(`Dep 5-6`),
+                    `Dep 7-8`=percent(`Dep 7-8`),
+                    `Dep 9-10`=percent(`Dep 9-10`),
+                    `Dep Unknown`=percent(`Dep Unknown`)),
+caption="Drop by deprivation from each DHB's best 12 month immunisation rate until now")
+```
+
+# Comparisons
+
+## Domicile's reaching 95%
+
+What percentage of domicile's reach 95% vaccination by 12 months
+
+```{r}
+target12 <- m12 %>% count(DHB_NAME) %>%
+  left_join(m12 %>% filter(Rate >= 0.95) %>% count(DHB_NAME),
+                    by="DHB_NAME") %>%
+      mutate(Frac=n.y/n.x) %>%
+  select(-n.x,-n.y) %>% 
+  arrange(Frac)
+kable(target12 %>% mutate(Frac=percent(Frac)), caption = "Percentage of Domiciles that reach 95% by 12 months")
+
+```
+
+What are the characteristics of those domiciles?
+
+```{r}
+characteristics <- m12 %>%
+  group_by(DHB_NAME) %>%
+  summarise(DHB.DepScore=mean(CAU_average_NZDep_score_2013, na.rm=T),
+            DHB.Size=mean(NUMBER_ELIGIBLE), DHB.Children =sum(NUMBER_ELIGIBLE))
+
+missed_target12 <- m12 %>%
+  filter(Rate < 0.95) %>%
+  group_by(DHB_NAME) %>%
+  summarise(Under.DepScore=mean(CAU_average_NZDep_score_2013, na.rm=T),
+            Under.Size=mean(NUMBER_ELIGIBLE),
+            Under.Children=sum(NUMBER_ELIGIBLE))
+
+target12char <- characteristics %>%
+  inner_join(m12 %>%
+  filter(Rate >= 0.95) %>%
+  group_by(DHB_NAME) %>%
+  summarise(DepScore=mean(CAU_average_NZDep_score_2013, na.rm=T),
+            Size=mean(NUMBER_ELIGIBLE),
+            Children=sum(NUMBER_ELIGIBLE)),
+  by = "DHB_NAME")
+
+kable(characteristics %>% left_join(target12char, by="DHB_NAME") %>% arrange(DepScore))
+kable(target12char)
+```
+
+Let's plot % target reached vs difference in deprivation score for those that reach the target
+and those that don't
+
+```{r}
+ggplot(missed_target12 %>% left_join(target12char, by="DHB_NAME") %>%
+       left_join(target12, by="DHB_NAME"),
+     aes(x=DepScore-Under.DepScore,y=Frac)) +
+  geom_point() +
+  geom_text(aes(label=DHB_NAME),vjust=1.2) +
+  theme_fivethirtyeight() +
+  scale_y_continuous(labels=percent) +
+  labs(title="Percentage of domiciles reaching target",
+       subtitle="Versus the difference in DepScore")
+ggsave('clusters.png')
+
+```
+
+Do the same plot but versus percentage of children - not domiciles.
+
+
+
+```{r}
+ggplot(missed_target12 %>% left_join(target12char, by="DHB_NAME") %>%
+       left_join(target12, by="DHB_NAME"),
+     aes(x=DepScore-Under.DepScore,y=Children/DHB.Children,label=paste(DHB_NAME,comma(DHB.Children-Children)))) +
+  geom_point(colour="red") +
+  theme_fivethirtyeight() +
+  scale_y_continuous(labels=percent) +
+  labs(title="Deprivation versus Vaccination",
+       subtitle="Percentage of children fully vaccinated at 12 months versus the difference 
+       in deprivation for target reaching and not-reaching areas",
+      caption="Labels include number of children living in domiciles that haven't reached the target.") +
+  geom_text_repel()
+ggsave('clusters2.png')
+```
+
+Let's look at the averages for the acheived and failed domiciles by DHB
+
+```{r,fig.height=12}
+af <- missed_target12 %>%
+  left_join(target12char, by="DHB_NAME") %>%
+  left_join(target12, by="DHB_NAME") %>% 
+  mutate(Achieved=Children/DHB.Children,Failed=Under.Children/DHB.Children) %>%
+  select(DHB_NAME,Achieved,DepScore,Under.DepScore) %>%
+  gather(Deprivation, Value, -Achieved, -DHB_NAME) %>%
+  mutate(Status=case_when(Deprivation=="DepScore" ~ "Achieved", TRUE ~ "Not Achieved"),
+         Children=case_when(Deprivation=="DepScore" ~ Achieved, TRUE ~ 1-Achieved),
+         Deprivation=Value) %>%
+  select(-Value,-Achieved)
+
+ggplot(af,
+     aes(x=Deprivation,y=Children,label=DHB_NAME)) +
+  geom_point(aes(color=Status)) +
+  geom_line(aes(group=DHB_NAME)) + 
+  theme_fivethirtyeight() +
+  scale_y_continuous(labels=percent) +
+  labs(title="Deprivation versus Vaccination",
+       subtitle="Percentage of children fully vaccinated at 12 months versus the difference 
+       in deprivation for target reaching and not-reaching areas",
+      caption="Labels include number of children living in domiciles that haven't reached the target.") +
+  facet_wrap(. ~ DHB_NAME)
+ggsave('clusters3.png', height=12)
+```
+
+What do these look like at 6 months?
+
+
+```{r}
+target6 <- m6 %>% count(DHB_NAME) %>%
+  left_join(m6 %>% filter(Rate >= 0.95) %>% count(DHB_NAME),
+                    by="DHB_NAME") %>%
+      mutate(Frac=n.y/n.x) %>%
+  select(-n.x,-n.y) %>% 
+  arrange(Frac)
+characteristics6 <- m6 %>%
+  group_by(DHB_NAME) %>%
+  summarise(DHB.DepScore=mean(CAU_average_NZDep_score_2013, na.rm=T),
+            DHB.Size=mean(NUMBER_ELIGIBLE), DHB.Children =sum(NUMBER_ELIGIBLE))
+
+missed_target6 <- m6 %>%
+  filter(Rate < 0.95) %>%
+  group_by(DHB_NAME) %>%
+  summarise(Under.DepScore=mean(CAU_average_NZDep_score_2013, na.rm=T),
+            Under.Size=mean(NUMBER_ELIGIBLE),
+            Under.Children=sum(NUMBER_ELIGIBLE))
+
+target6char <- characteristics6 %>%
+  left_join(m6 %>%
+  filter(Rate >= 0.95) %>%
+  group_by(DHB_NAME) %>%
+  summarise(DepScore=mean(CAU_average_NZDep_score_2013, na.rm=T),
+            Size=mean(NUMBER_ELIGIBLE),
+            Children=sum(NUMBER_ELIGIBLE)),
+  by = "DHB_NAME")
+
+```
+
+
+```{r}
+ggplot(missed_target6 %>% left_join(target6char, by="DHB_NAME") %>%
+       left_join(target6, by="DHB_NAME") %>%
+       filter(DHB_NAME != "Overseas and undefined"),
+     aes(x=coalesce(DepScore-Under.DepScore,0),y=coalesce(Children/DHB.Children,0),label=paste(DHB_NAME,comma(DHB.Children-coalesce(Children,0))))) +
+  geom_point(colour="red") +
+  theme_fivethirtyeight() +
+  scale_y_continuous(labels=percent, limits=c(-0.02,0.1)) +
+  labs(title="Deprivation versus Vaccination",
+       subtitle="Percentage of children fully vaccinated at 6 months versus the difference 
+       in deprivation for target reaching and not-reaching areas",
+      caption="Labels include number of children living in domiciles that haven't reached the target.") +
+  geom_text_repel()
+ggsave('clusters4.png')
+```
+
+# Population denisty
+
+```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+ggplot(vaccinations_geo %>% filter(AGE_IN_MONTHS==6),
+       aes(x=log(NUMBER_ELIGIBLE/AREA_SQ_KM),y=NUMBER_FULLY_IMMUNISED/NUMBER_ELIGIBLE,color=CAU_average_NZDep_score_2013)) + 
+                                                    geom_point() + 
+                                                    facet_wrap(. ~ DHB_NAME) + 
+                                                    scale_color_viridis_c(option="C",direction=-1,position="bottom")
+```
+
+It does not look like population density (which I think is an OK proxy for remoteness is a factor).
+
+
+# Transience
+
+```{r}
+missing <- reports %>% filter(Milestone=='06 months',Category=='Total',DHB=='National',Measure!='Percentage') %>% spread(Measure,Value) %>% mutate(Missing=Eligible-Immunised)
+small_areas6nz <- vaccinations %>% filter(str_detect(DOMICILE_NAME, 'other domiciles'), AGE_IN_MONTHS==6) %>% group_by(MILESTONE_YEAR) %>% summarise(Total=sum(NUMBER_ELIGIBLE), Missed=sum(NUMBER_ELIGIBLE)-sum(NUMBER_FULLY_IMMUNISED))
+```
+
+# Maps
+
+```{r}
+vaccinations_geo <- vaccinations_geo %>%
+  filter(AGE_IN_MONTHS==6,MILESTONE_YEAR==2016) %>%
+  mutate(OK=case_when(NUMBER_FULLY_IMMUNISED/NUMBER_ELIGIBLE >= 0.75 ~ 'Yes', TRUE ~ 'No'))
+ggplot(vaccinations_geo %>% filter(DHB_NAME=='Bay of Plenty'),
+       aes(geometry=geometry,fill=OK)) + 
+  geom_sf() + 
+  scale_fill_viridis_d(option='C',name="Rate") + 
+  theme_map() +
+  labs(subtitle="Bay of Plenty at 6 months", title="75% of children vaccinated")
+```
+
+```{r}
+ggplot(vaccinations_geo %>% filter(DHB_NAME=='Counties Manukau'),
+       aes(geometry=geometry,fill=OK)) + 
+  geom_sf() + 
+  scale_fill_viridis_d(option='C',name="Rate") + 
+  theme_map() +
+  labs(subtitle="Counties Manukau at 6 months", title="75% of children vaccinated")
+```
+
+```{r}
+ggplot(vaccinations_geo %>% filter(DHB_NAME=='Waikato'),
+       aes(geometry=geometry,fill=OK)) + 
+  geom_sf() + 
+  scale_fill_viridis_d(option='C',name="Rate") + 
+  theme_map() +
+  labs(subtitle="Waikato at 6 months", title="75% of children vaccinated")
+```
+
+```{r}
+ggplot(vaccinations_geo %>% filter(DHB_NAME=='Northland'),
+       aes(geometry=geometry,fill=OK)) + 
+  geom_sf() + 
+  scale_fill_viridis_d(option='C',name="Rate") + 
+  theme_map() +
+  labs(subtitle="Northland at 6 months", title="75% of children vaccinated")
+```
+
+
+# Numbers
+
+## What is the difference between December 2015 and now?
+
+670 kids - that is all that are missing.
+
+Peak 6 month overall rate was 82% - now it is 77%. In the most recent quarter there were
+14745 kids - so vaccinating 670 more would get to 82%.
+
+## Demographics of drop.
+
+Deprivation
+
+```{r}
+mdall6 <- reports %>%
+     filter(Breakdown=='Deprivation', Milestone=='06 months',DHB=='National')
+kable(mdall6 %>%
+     filter(Measure=="Percentage",Quarter=="2015-12-01") %>%
+     select(Category, Value) %>%
+     inner_join(mdall6 %>%
+     filter(Measure=="Percentage",Quarter=="2019-03-01") %>%
+     select(Category, Value), by="Category") %>%
+     mutate(Drop=Value.x-Value.y) %>%
+     inner_join(mdall6 %>%
+     filter(Measure=="Eligible",Quarter=="2015-12-01") %>%
+     select(Category, Value), by="Category") %>%
+     mutate(Lost=round(Value*Drop)) %>%
+     mutate(Drop=round(Drop*100,2),`Dec 2015`=percent(Value.x),`Mar 2019`=percent(Value.y)) %>%
+     select(-Value.x,-Value.y) %>%
+     rename(Eligible=Value),
+  caption="Additional number of children that would have been vaccinated at 6 months in March this
+year if vaccination rate was the same as Dec 2015", align=c('l', rep('r',5)))
+```
+
+Ethnicity
+
+
+```{r}
+meall6 <- reports %>%
+     filter(Breakdown=='Ethnicity', Milestone=='06 months',DHB=='National')
+kable(meall6 %>%
+     filter(Measure=="Percentage",Quarter=="2015-12-01") %>%
+     select(Category, Value) %>%
+     inner_join(meall6 %>%
+     filter(Measure=="Percentage",Quarter=="2019-03-01") %>%
+     select(Category, Value), by="Category") %>%
+     mutate(Drop=Value.x-Value.y) %>%
+     inner_join(meall6 %>%
+     filter(Measure=="Eligible",Quarter=="2015-12-01") %>%
+     select(Category, Value), by="Category") %>%
+     mutate(Lost=round(Value*Drop)) %>%
+     mutate(Drop=round(Drop*100,2),`Dec 2015`=percent(Value.x),`Mar 2019`=percent(Value.y)) %>%
+     select(-Value.x,-Value.y) %>%
+     rename(Eligible=Value),
+  caption="Additional number of children that would have been vaccinated at 6 months in March this
+year if vaccination rate was the same as Dec 2015", align=c('l', rep('r',5)))
+```
+
+# DHB Numbers
+
+Deprivation
+
+```{r}
+mdall6 <- reports %>%
+     filter(Breakdown=='Deprivation', Milestone=='06 months',DHB != 'National')
+kable(mdall6 %>%
+     filter(Measure=="Percentage",Quarter=="2015-12-01") %>%
+     select(Category, Value, DHB) %>%
+     inner_join(mdall6 %>%
+     filter(Measure=="Percentage",Quarter=="2019-03-01") %>%
+     select(Category, Value, DHB), by=c("Category","DHB")) %>%
+     mutate(Drop=Value.x-Value.y) %>%
+     inner_join(mdall6 %>%
+     filter(Measure=="Eligible",Quarter=="2015-12-01") %>%
+     select(Category, Value, DHB), by=c("Category","DHB")) %>%
+     mutate(Lost=round(Value*Drop)) %>%
+     mutate(Drop=round(Drop*100,2),`Dec 2015`=percent(Value.x),`Mar 2019`=percent(Value.y)) %>%
+     select(-Value.x,-Value.y) %>%
+     rename(Eligible=Value) %>%
+     arrange(DHB, Category),
+  caption="Additional number of children that would have been vaccinated at 6 months in March this
+year if vaccination rate was the same as Dec 2015", align=c('l', rep('r',5)))
+```
+
+Ethnicity
+
+
+```{r}
+mdall6 <- reports %>%
+     filter(Breakdown=='Ethnicity', Milestone=='06 months',DHB != 'National')
+kable(mdall6 %>%
+     filter(Measure=="Percentage",Quarter=="2015-12-01") %>%
+     select(Category, Value, DHB) %>%
+     inner_join(mdall6 %>%
+     filter(Measure=="Percentage",Quarter=="2019-03-01") %>%
+     select(Category, Value, DHB), by=c("Category","DHB")) %>%
+     mutate(Drop=Value.x-Value.y) %>%
+     inner_join(mdall6 %>%
+     filter(Measure=="Eligible",Quarter=="2015-12-01") %>%
+     select(Category, Value, DHB), by=c("Category","DHB")) %>%
+     mutate(Lost=round(Value*Drop)) %>%
+     mutate(Drop=round(Drop*100,2),`Dec 2015`=percent(Value.x),`Mar 2019`=percent(Value.y)) %>%
+     select(-Value.x,-Value.y) %>%
+     rename(Eligible=Value) %>%
+     arrange(Category, DHB),
+  caption="Additional number of children that would have been vaccinated at 6 months in March this
+year if vaccination rate was the same as Dec 2015", align=c('l', rep('r',5)))
+```
+
+
+# Final charts
+
+```{r}
+ggplot(reports %>% 
+       filter(Milestone=='06 months',
+              Measure=='Percentage',
+              Breakdown=='Deprivation',
+              Category != 'Dep Unknown',
+              DHB=='National'), aes(x=Quarter,y=Value,color=Category)) + 
+  geom_line() + 
+  facet_wrap(. ~ Milestone) +
+  scale_y_continuous(labels=percent) +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="Fully vaccinated six month olds") 
+ggsave('deprivation.svg')
+```
+
+```{r}
+ggplot(reports %>% 
+       filter(Milestone=='06 months',
+              Measure=='Percentage',
+              Breakdown=='Ethnicity',
+              DHB=='National'), aes(x=Quarter,y=Value,color=Category)) + 
+  geom_line() + 
+  facet_wrap(. ~ Milestone) +
+  scale_y_continuous(labels=percent) +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="Fully vaccinated six month olds") 
+ggsave('ethnicity.svg')
+```
+
+```{r}
+ggplot(reports %>% 
+       filter(Milestone=='06 months',
+              Measure=='Percentage',
+              Breakdown=='Ethnicity',
+              Category == 'Total',
+              DHB=='National'), aes(x=Quarter,y=Value,color=Category)) + 
+  geom_line() + 
+  facet_wrap(. ~ Milestone) +
+  scale_y_continuous(labels=percent) +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  theme_fivethirtyeight() +
+  labs(title="Fully vaccinated six month olds") 
+ggsave('total.svg')
+```
+
