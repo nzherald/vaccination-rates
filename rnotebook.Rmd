@@ -41,6 +41,40 @@ vaccinations <- drake::readd(oia_data)
 vaccinations_geo <- drake::readd(oia_data_geo)
 dom <- drake::readd(whole_dom)
 ```
+
+# Introduction
+
+This is the working document for a New Zealand Herald investigation of vaccination rates in New
+Zealand - the final article is [here](https://www.nzherald.co.nz/nz/news/article.cfm?c_id=1&objectid=12250703)
+
+This document has been released largely as-is and hopefully will provide some insight into and
+transparency for the numerical aspects of the investigation. If you have any questions or comments
+please get in touch with Chris Knox - https://twitter.com/vizowl or chris.knox@nzherald.co.nz
+
+The actual document was created iteratively via duscussion between Kirsty Johnston
+(https://twitter.com/kirsty_johnston) and Chris Knox as we tried to understand the data.
+
+The source code for the analysis and interactive is open source. Although, if you use
+it we would appreciate it if you could acknowledge the New Zealand Herald.
+
+## Data
+
+Immunisation data came from the Ministry of Health's [reporting](https://www.health.govt.nz/our-work/preventative-health-wellness/immunisation/immunisation-coverage/national-and-dhb-immunisation-data)
+and from data released to the New Zealand Herald under the Official Information Act (OIA). The OIA'd
+data is a breakdown of vaccination rates by Health Domicile - Health Domiciles are loosely similar
+to suburbs.
+
+This analysis is used data from StatsNZ - specifically area unit boundaries and geographic area
+concordances.
+
+All the government data is crown copyright released under a [creative commons licence](https://creativecommons.org/licenses/by/4.0/).
+
+
+## Interactive
+
+The charts were made as a simple [react](https://reactjs.org/) using the excellent 
+[semiotic](https://semiotic.nteract.io/) visualisation library.
+
 # Data from immunisation coverage reports
 
 ```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
@@ -71,11 +105,8 @@ ggplot(reports %>%
 ```
 
 
-# Kirsty's questions
+## Explore
 
-> 1.Snapshot: For the latest point in time we have (I think it's Dec last year?) (both for overall rates, and then just for six-month rates)
-
-> -Where are the lowest rates of vaccination?
 
 ```{r}
 m6 <- drake::readd(month6)
@@ -110,8 +141,6 @@ kable(top_n(overall, -10, Rate) %>% arrange(Rate) %>%
       select(DHB_NAME, DOMICILE_NAME, Dep=CAU_average_NZDep2013, Rate),
     caption="The worst 10 domiciles overall in 2018")
 ```
-
-> Is there a correlation between vaxx rates and deprivation?
 
 Let's use the score not the deciles.
 
@@ -370,13 +399,12 @@ dropoffs_eth <- dhb_total_eth %>%
 kable(spread(dropoffs_eth %>%
              filter(Milestone=='06 months') %>%
              select(DHB,Drop,Category), Category, Drop) %>%
-      arrange(Maori) %>%
+      arrange(Māori) %>%
       mutate(Asian=percent(Asian),
-             Māori=percent(Maori),
-             Pākehā=percent(NZE),
+             Māori=percent(Māori),
+             Pākehā=percent(Pākehā),
              Other=percent(Other),
-             Pacific=percent(Pacific)) %>%
-      select(-NZE,-Maori),
+             Pacific=percent(Pacific)),
 caption="Drop by ethnicity from each DHB's best 6 month immunisation rate until now")
 ```
 
@@ -386,13 +414,12 @@ caption="Drop by ethnicity from each DHB's best 6 month immunisation rate until 
 kable(spread(dropoffs_eth %>%
              filter(Milestone=='08 months') %>%
              select(DHB,Drop,Category), Category, Drop) %>%
-      arrange(Maori) %>%
+      arrange(Māori) %>%
       mutate(Asian=percent(Asian),
-             Māori=percent(Maori),
-             Pākehā=percent(NZE),
+             Māori=percent(Māori),
+             Pākehā=percent(Pākehā),
              Other=percent(Other),
-             Pacific=percent(Pacific)) %>%
-      select(-NZE,-Maori),
+             Pacific=percent(Pacific)),
 caption="Drop by ethnicity from each DHB's best 8 month immunisation rate until now")
 ```
 
@@ -404,13 +431,12 @@ caption="Drop by ethnicity from each DHB's best 8 month immunisation rate until 
 kable(spread(dropoffs_eth %>%
              filter(Milestone=='12 months') %>%
              select(DHB,Drop,Category), Category, Drop) %>%
-      arrange(Maori) %>%
+      arrange(Māori) %>%
       mutate(Asian=percent(Asian),
-             Māori=percent(Maori),
-             Pākehā=percent(NZE),
+             Māori=percent(Māori),
+             Pākehā=percent(Pākehā),
              Other=percent(Other),
-             Pacific=percent(Pacific)) %>%
-      select(-NZE,-Maori),
+             Pacific=percent(Pacific)),
 caption="Drop by ethnicity from each DHB's best 12 month immunisation rate until now")
 ```
 
@@ -656,8 +682,6 @@ ggplot(vaccinations_geo %>% filter(AGE_IN_MONTHS==6),
 It does not look like population density (which I think is an OK proxy for remoteness is a factor).
 
 
-# Transience
-
 ```{r}
 missing <- reports %>% filter(Milestone=='06 months',Category=='Total',DHB=='National',Measure!='Percentage') %>% spread(Measure,Value) %>% mutate(Missing=Eligible-Immunised)
 small_areas6nz <- vaccinations %>% filter(str_detect(DOMICILE_NAME, 'other domiciles'), AGE_IN_MONTHS==6) %>% group_by(MILESTONE_YEAR) %>% summarise(Total=sum(NUMBER_ELIGIBLE), Missed=sum(NUMBER_ELIGIBLE)-sum(NUMBER_FULLY_IMMUNISED))
@@ -842,7 +866,7 @@ ggplot(reports %>%
   geom_line() + 
   facet_wrap(. ~ Milestone) +
   scale_y_continuous(labels=percent) +
-  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  scale_color_brewer(palette='RdYlGn', direction=-1, name="Ethnicity") +
   theme_fivethirtyeight() +
   labs(title="Fully vaccinated six month olds") 
 ggsave('ethnicity.svg')
@@ -858,8 +882,9 @@ ggplot(reports %>%
   geom_line() + 
   facet_wrap(. ~ Milestone) +
   scale_y_continuous(labels=percent) +
-  scale_color_brewer(palette='RdYlGn', direction=-1, name="Deprivation") +
+  scale_color_brewer(palette='RdYlGn', direction=-1) +
   theme_fivethirtyeight() +
+  theme(legend.position="none") +
   labs(title="Fully vaccinated six month olds") 
 ggsave('total.svg')
 ```
