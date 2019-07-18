@@ -1,25 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import axios from 'axios';
 import ChartCarousel from './ChartCarousel'
 
-import config from "./config.json"
+import deprivation from "./deprivation.json"
+import ethnicity from "./ethnicity.json"
 import { homepage } from "../package.json"
 
 import LineChart from "./LineChart"
 
 function App({option}) {
-  const [data, setData] = useState({ ethnicity: {}, deprivation: {} });
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const deprivation = await axios(homepage + config.deprivation)
-      const ethnicity = await axios(homepage + config.ethnicity)
-
-      setData({deprivation: deprivation.data, ethnicity: ethnicity.data})
-    };
-
-    fetchData();
-  }, []);
+  const [data, setData] = useState({ ethnicity, deprivation });
 
   if (option === "total-trend") {
     return (

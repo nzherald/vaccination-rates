@@ -13,20 +13,20 @@ const tooltipStyles = {
   background: "rgba(255,255,255,1)",
   minWidth: "max-content",
   whiteSpace: "nowrap",
-  fontFamily: "Stag Sans",
+  fontFamily: "Stag Sans Book",
   zIndex: 100,
   marginLeft: "10px",
   padding: "3px 1px",
   fontSize: "14px"
 }
 
-export default ({data, title, subtitle, note, nokey}) => {
+export default ({data, title, subtitle, note, nokey, style}) => {
   const frameProps = {
     lines : data ? Object.entries(data).filter(d => d[0] !== 'Dep Unknown' && (data['Asian'] ? (d[0] !== "Total") : true)).map(d => {
       return {title: d[0], coordinates: d[1]}
     }) : [],
     size: [Math.min(600, window.innerWidth),200],
-    margin: { left: 50, bottom: 30, right: nokey ? 20 : 100, top: 55 },
+    margin: { left: 50, bottom: 30, right: nokey ? 50 : 100, top: 55 },
     xAccessor: d => new Date(d.Quarter),
     hoverAnnotation: true,
     tooltipContent: d => {
@@ -51,7 +51,7 @@ export default ({data, title, subtitle, note, nokey}) => {
       { orient: "bottom", ticks: window.innerWidth < 400 ? 3 : 7, tickFormat: formatTime }]
 
   }
-  return (<div>
+  return (<div style={style} >
     <div className="chart-wrapper">
       <div className="chart-legend">
         {nokey || frameProps.lines.map(({title},i) => {

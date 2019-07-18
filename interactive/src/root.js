@@ -28,23 +28,17 @@ class Main extends Base {
         const totalEth = document.getElementById("nzh-datavis-root__nzeth")
         const totalDep = document.getElementById("nzh-datavis-root__nzdep")
         this.premiumWait(() => {
-            console.log(chartCarousel, totalDep, totalEth, totalTrend)
-            debugger
             if (chartCarousel) {
-                console.log(location.href, "carousel")
             ReactDOM.render(<App />, chartCarousel)
         }
         if (totalTrend) {
 
-                console.log(location.href, "total")
             ReactDOM.render(<App option="total-trend"/>, totalTrend)
         }
         if (totalEth) {
-                console.log(location.href, "eth")
             ReactDOM.render(<App option="total-eth"/>, totalEth)
         }
         if (totalDep) {
-                console.log(location.href, "dep")
             ReactDOM.render(<App option="total-dep"/>, totalDep)
         }
             console.log("Rendering...")
