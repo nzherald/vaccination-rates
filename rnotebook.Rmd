@@ -155,7 +155,7 @@ ggplot(m6, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
   geom_point() +
   geom_smooth() +
   theme_fivethirtyeight() +
-  labs(title = "Deprivation versus 6 month vaccination rates") +
+  labs(title = "Deprivation versus 6 month vaccination rates", subtitle="Points are domiciles") +
   scale_y_continuous(labels=percent)
 ```
 
@@ -166,7 +166,7 @@ ggplot(m6, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
   geom_point() +
   geom_smooth() +
   theme_fivethirtyeight() +
-  labs(title = "Deprivation versus 6 month vaccination rates") +
+  labs(title = "Deprivation versus 6 month vaccination rates", subtitle="Points are domiciles") +
   scale_y_continuous(labels=percent,limits=c(0.5,1)) +
   facet_wrap(. ~ DHB_NAME, ncol=4)
 ```
@@ -181,7 +181,7 @@ ggplot(m12, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
   geom_point() +
   geom_smooth() +
   theme_fivethirtyeight() +
-  labs(title = "Deprivation versus 12 month vaccination rates") +
+  labs(title = "Deprivation versus 12 month vaccination rates", subtitle="Points are domiciles") +
   scale_y_continuous(labels=percent,limits=c(0.5,1)) +
   facet_wrap(. ~ DHB_NAME, ncol=4)
 ```
@@ -191,7 +191,7 @@ ggplot(m18, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
   geom_point() +
   geom_smooth() +
   theme_fivethirtyeight() +
-  labs(title = "Deprivation versus 18 month vaccination rates") +
+  labs(title = "Deprivation versus 18 month vaccination rates", subtitle="Points are domiciles") +
   scale_y_continuous(labels=percent,limits=c(0.5,1)) +
   facet_wrap(. ~ DHB_NAME, ncol=4)
 ```
@@ -201,7 +201,7 @@ ggplot(m24, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
   geom_point() +
   geom_smooth() +
   theme_fivethirtyeight() +
-  labs(title = "Deprivation versus 24 month vaccination rates") +
+  labs(title = "Deprivation versus 24 month vaccination rates", subtitle="Points are domiciles") +
   scale_y_continuous(labels=percent,limits=c(0.5,1)) +
   facet_wrap(. ~ DHB_NAME, ncol=4)
 ```
@@ -211,7 +211,7 @@ ggplot(m60, aes(x=CAU_average_NZDep_score_2013,y=Rate)) +
   geom_point() +
   geom_smooth() +
   theme_fivethirtyeight() +
-  labs(title = "Deprivation versus 60 month vaccination rates") +
+  labs(title = "Deprivation versus 60 month vaccination rates", subtitle="Points are domiciles") +
   scale_y_continuous(labels=percent,limits=c(0.5,1)) +
   facet_wrap(. ~ DHB_NAME, ncol=4)
 ```
