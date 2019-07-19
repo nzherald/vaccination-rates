@@ -4,3 +4,10 @@ into falling vaccination rates.
 For more detail see http://nzherald.github.io/vaccination-rates
 
 
+The data exploration was done using tidyverse style R - most of the heavy lifting
+is managed by the excellent drake package - see `_drake.R`
+
+The interactive uses React and the Semiotic visualisation library.
+
+
+

@@ -8,6 +8,10 @@ output:
     toc: true
     toc_depth: 2
     number_sections: true
+    includes:
+      in_header: 
+        - og.html
+        - twitter.html
 ---
 
 ```{r setup, include=FALSE}
@@ -53,6 +57,8 @@ please get in touch with Chris Knox - https://twitter.com/vizowl or chris.knox@n
 
 The document was created iteratively via duscussion between Kirsty Johnston
 (https://twitter.com/kirsty_johnston) and Chris Knox as we tried to understand the data.
+The [source code](https://github.com/nzherald/vaccination-rates/blob/master/rnotebook.Rmd) may
+be more informative our intent than this document.
 
 The source code for the analysis and interactive is open source. Although, if you use
 it we would appreciate it if you could acknowledge the New Zealand Herald.
@@ -67,7 +73,7 @@ to suburbs.
 This analysis is used data from StatsNZ - specifically area unit boundaries and geographic area
 concordances.
 
-All the government data is crown copyright released under a [creative commons licence](https://creativecommons.org/licenses/by/4.0/).
+All the government data is Crown Copyright released under a [creative commons licence](https://creativecommons.org/licenses/by/4.0/).
 
 
 ## Interactive
@@ -77,7 +83,7 @@ The charts were made as a simple [react](https://reactjs.org/) using the excelle
 
 # Data from immunisation coverage reports
 
-```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+```{r,fig.fullwidth=T,fig.width=10,fig.height=10}
 reports <- drake::readd(reports)
 ggplot(reports %>% 
        filter(Measure=='Percentage',
@@ -91,7 +97,7 @@ ggplot(reports %>%
   labs(title="National vaccination milestones by ethnicity") 
 ```
 
-```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
+```{r,fig.fullwidth=T,fig.width=10,fig.height=10}
 ggplot(reports %>% 
        filter(Measure=='Percentage',
               Breakdown=='Deprivation',
@@ -672,11 +678,12 @@ ggsave('clusters4.png')
 # Population denisty
 
 ```{r,fig.fullwidth=T,fig.width=10,fig.height=14}
-ggplot(vaccinations_geo %>% filter(AGE_IN_MONTHS==6),
+dp <- ggplot(vaccinations_geo %>% filter(AGE_IN_MONTHS==6),
        aes(x=log(NUMBER_ELIGIBLE/AREA_SQ_KM),y=NUMBER_FULLY_IMMUNISED/NUMBER_ELIGIBLE,color=CAU_average_NZDep_score_2013)) + 
-                                                    geom_point() + 
                                                     facet_wrap(. ~ DHB_NAME) + 
                                                     scale_color_viridis_c(option="C",direction=-1,position="bottom")
+dp + geom_point()
+ggsave('density.png', plot=dp+theme(legend.position="none")+geom_point(size=0.5),width=6,height=3.35,dpi=100)
 ```
 
 It does not look like population density (which I think is an OK proxy for remoteness is a factor).
@@ -887,5 +894,17 @@ ggplot(reports %>%
   theme(legend.position="none") +
   labs(title="Fully vaccinated six month olds") 
 ggsave('total.svg')
+```
+
+```{r}
+headR::add_og_card(card_type = "website",
+                  title = "Vaccination rates - data exploration", 
+                   image = "https://nzherald.github.io/vaccination-rates/density.png",
+                   url = "https://nzherald.github.io/vaccination-rates/",
+                   description = "Data used in New Zealand Herald exploration of vaccination rates",
+                   file = "og.html")
+headR::add_twitter_card(title = "Vaccination rates - data exploration", 
+                        file = "twitter.html", 
+                        image = "https://nzherald.github.io/vaccination-rates/density.png")
 ```
 
