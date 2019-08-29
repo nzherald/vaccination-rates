@@ -104,7 +104,7 @@ output_plan <- drake_plan(
              arrange(Quarter))) %>%
      as_d3_data() %>%
      jsonlite::toJSON(),
-    ethnicity.json.file = paste0('./interactive/static/ethnicity.',
+    ethnicity.json.file = paste0('./interactive/static/ethnicity-v3.',
                            md5(ethnicity.json),
                            '.json'),
     ethnicity.json.out = ethnicity.json %>% write(file_out(ethnicity.json.file)),
@@ -119,13 +119,13 @@ output_plan <- drake_plan(
          map(~select(., -Category) %>%
              arrange(Quarter))) %>%
      jsonlite::toJSON(),
-    deprivation.jsonfile = paste0('./interactive/static/deprivation.', md5(deprivation.json), '.json'),
+    deprivation.jsonfile = paste0('./interactive/static/deprivation-v3.', md5(deprivation.json), '.json'),
     deprivation.json.out = deprivation.json %>% write(file_out(deprivation.jsonfile)),
     deprivation.json.srcout = deprivation.json %>% write(file_out('./interactive/src/deprivation.json')),
-    config.json = write(list(ethnicity=paste0("ethnicity.",
+    config.json = write(list(ethnicity=paste0("ethnicity-v3.",
                                               md5(ethnicity.json),
                                               ".json"),
-                             deprivation=paste0("deprivation.",
+                             deprivation=paste0("deprivation-v3.",
                                               md5(deprivation.json),
                                               ".json")) %>% jsonlite::toJSON(auto_unbox=T),
                         './interactive/src/config.json'),
