@@ -16,6 +16,7 @@ download_spreadsheets <- function() {
 
 fileToDate <- function(f) {
 case_when(
+  f == "immunisation-3-month-period-08jul2019-105444.xlsx" ~ 'Jun 2019',
   f == "imm-t1-stats-3-month-period-08apr2019-140817.xlsx" ~ 'Mar 2019',
   f == "immunisation-tier-1-statistics-3-month-period-31-dec-2018.xlsx" ~ 'Dec 2018',
   f == "immunisation-tier-1-stats-3-month-period-08oct2018.xlsx" ~ 'Sep 2018',
